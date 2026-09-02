@@ -1,0 +1,6 @@
+{
+  "name": "Statement to Excel Converter",
+  "description": "Upload bank statement screenshots or finance writeups, automatically extract and organize income and outgoings into an interactive spreadsheet, edit any transaction, and download ready-to-use Excel (.xlsx) workbooks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
