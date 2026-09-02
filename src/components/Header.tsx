@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, Download, Plus, RotateCcw, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
+import { FileSpreadsheet, Download, Plus, RotateCcw, Sparkles, FileText, CheckCircle2, Key } from 'lucide-react';
 import { Transaction } from '../types';
 import { exportTransactionsToExcel, exportTransactionsToCSV, copyTransactionsToClipboard } from '../utils/excelExport';
 import confetti from 'canvas-confetti';
@@ -12,6 +12,7 @@ interface HeaderProps {
   statementTitle: string;
   onTitleChange: (newTitle: string) => void;
   isProcessing: boolean;
+  onOpenApiKeyModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   statementTitle,
   onTitleChange,
   isProcessing,
+  onOpenApiKeyModal,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [isEditingTitle, setIsEditingTitle] = React.useState(false);
@@ -117,6 +119,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {onOpenApiKeyModal && (
+              <button
+                id="api-key-btn"
+                onClick={onOpenApiKeyModal}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 border border-stone-200 rounded-lg transition-colors cursor-pointer"
+                title="Configure Gemini API Key for Static / GitHub Pages"
+              >
+                <Key className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden sm:inline">API Key</span>
+              </button>
+            )}
+
             {transactions.length === 0 ? (
               <button
                 id="load-sample-btn"

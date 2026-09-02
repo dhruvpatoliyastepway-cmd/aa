@@ -5,12 +5,14 @@ import { StatsCards } from './components/StatsCards';
 import { SpreadsheetView } from './components/SpreadsheetView';
 import { CategoryBreakdown } from './components/CategoryBreakdown';
 import { AddTransactionModal } from './components/AddTransactionModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { InsightsBanner } from './components/InsightsBanner';
 import { Transaction, ExtractionResult, UploadedFileItem } from './types';
 import { SAMPLE_EXTRACTION_RESULT, SAMPLE_PRESET_TRANSACTIONS } from './data/samplePresets';
 import confetti from 'canvas-confetti';
 import { FileSpreadsheet, Download, Plus, UploadCloud } from 'lucide-react';
 import { exportTransactionsToExcel } from './utils/excelExport';
+import { extractStatementWithClientSdk, getClientStoredApiKey } from './utils/geminiClient';
 
 export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -18,8 +20,9 @@ export default function App() {
   const [statementTitle, setStatementTitle] = useState<string>('Financial Statement Ledger');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
 
-  // Process uploaded images and writeup through server Gemini API
+  // Process uploaded images and writeup through server API or client-side SDK on static hosting
   const handleProcess = async (
     files: UploadedFileItem[],
     writeup: string,
@@ -34,23 +37,48 @@ export default function App() {
         data: f.base64Data || '',
       }));
 
-      const res = await fetch('/api/extract-statement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          images: payloadImages,
+      let result: ExtractionResult | null = null;
+
+      // Try server API first
+      try {
+        const res = await fetch('/api/extract-statement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            images: payloadImages,
+            writeup,
+            preferredCurrency,
+            defaultAccount,
+          }),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            result = json.data;
+          }
+        }
+      } catch {
+        // Ignore server network errors when running on static hosts (e.g. GitHub Pages)
+      }
+
+      // If backend endpoint is not available or failed (e.g. static GitHub Pages hosting)
+      if (!result) {
+        const localKey = getClientStoredApiKey();
+        if (!localKey) {
+          setIsApiKeyModalOpen(true);
+          throw new Error('On static hosting (GitHub Pages), please configure your Gemini API Key using the API Key button in the top bar to process statements.');
+        }
+
+        result = await extractStatementWithClientSdk(
+          payloadImages,
           writeup,
           preferredCurrency,
           defaultAccount,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to extract transactions from the provided documents.');
+          localKey
+        );
       }
 
-      const result: ExtractionResult = json.data;
       setExtractionResult(result);
       setTransactions(result.transactions || []);
 
@@ -149,6 +177,7 @@ export default function App() {
         statementTitle={statementTitle}
         onTitleChange={setStatementTitle}
         isProcessing={isProcessing}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
       />
 
       {/* Main Container */}
@@ -229,6 +258,12 @@ export default function App() {
         onAdd={handleAddTransaction}
         defaultCurrency={transactions[0]?.currency || '$'}
         defaultAccount={transactions[0]?.account || 'Main Account'}
+      />
+
+      {/* API Key Modal for GitHub Pages / Static Hosting */}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
       />
 
       {/* Footer */}
